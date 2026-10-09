@@ -1,0 +1,62 @@
+{
+  "dex": "xyz",
+  "tickers": [
+    {
+      "ticker": "NVDA",
+      "coin": "xyz:NVDA",
+      "inception": 1762981200,
+      "last": 1791511200,
+      "prints": 7926
+    },
+    {
+      "ticker": "GOOGL",
+      "coin": "xyz:GOOGL",
+      "inception": 1763485200,
+      "last": 1791511200,
+      "prints": 7786
+    },
+    {
+      "ticker": "META",
+      "coin": "xyz:META",
+      "inception": 1763650800,
+      "last": 1791511200,
+      "prints": 7740
+    },
+    {
+      "ticker": "MU",
+      "coin": "xyz:MU",
+      "inception": 1766163600,
+      "last": 1791511200,
+      "prints": 7042
+    },
+    {
+      "ticker": "SNDK",
+      "coin": "xyz:SNDK",
+      "inception": 1768230000,
+      "last": 1791511200,
+      "prints": 6468
+    },
+    {
+      "ticker": "CRCL",
+      "coin": "xyz:CRCL",
+      "inception": 1765814400,
+      "last": 1791511200,
+      "prints": 7139
+    },
+    {
+      "ticker": "INTC",
+      "coin": "xyz:INTC",
+      "inception": 1764774000,
+      "last": 1791511200,
+      "prints": 7428
+    },
+    {
+      "ticker": "HOOD",
+      "coin": "xyz:HOOD",
+      "inception": 1764169200,
+      "last": 1791511200,
+      "prints": 7596
+    }
+  ],
+  "snapshot": 1791513773
+}

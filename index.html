@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HIP-3 Funding Study</title>
+  <meta name="description" content="Annualized funding on Hyperliquid HIP-3 stock perps (trade.xyz), split by US market open and closed hours.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23173a5e'/%3E%3Cpath d='M5 21 L11 14 L16 18 L22 9 L27 13' stroke='%2386b6ef' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script>
+    try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+  </script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-text">
+      <h1>Stock perp funding on Hyperliquid</h1>
+      <p class="sub">trade.xyz (HIP-3) perps, hourly funding annualized. Positive means longs pay and shorts receive.</p>
+    </div>
+    <div class="masthead-meta">
+      <p id="snapshot" class="snapshot"></p>
+      <button id="theme-toggle" class="ghost-btn" type="button" aria-label="Switch color theme">Dark theme</button>
+    </div>
+  </header>
+
+  <nav id="tickers" class="tickers" aria-label="Ticker"></nav>
+
+  <div class="viewbar">
+    <div class="seg" role="radiogroup" aria-label="Hours shown">
+      <button type="button" role="radio" data-view="all">All hours</button>
+      <button type="button" role="radio" data-view="split">Market open vs closed</button>
+    </div>
+    <p class="hint">Open = NYSE regular session, 9:30–16:00 New York time. The 9:00–10:00 hour counts as open; holidays and half-days follow the NYSE calendar.</p>
+  </div>
+
+  <main class="grid">
+    <section class="panel stats-panel" aria-labelledby="stats-title">
+      <h2 id="stats-title"></h2>
+      <div id="stats" class="table-wrap"></div>
+    </section>
+
+    <section class="panel chart-panel" aria-labelledby="chart-title">
+      <div class="chart-head">
+        <h2 id="chart-title">Rolling funding by window</h2>
+        <div class="controls">
+          <label class="check"><input type="checkbox" id="show-price" checked> Price chart</label>
+          <div class="seg small" role="radiogroup" aria-label="Bar interval" id="interval">
+            <button type="button" role="radio" data-interval="1h">1h</button>
+            <button type="button" role="radio" data-interval="4h">4h</button>
+            <button type="button" role="radio" data-interval="1d">1D</button>
+          </div>
+          <div class="seg small" role="radiogroup" aria-label="Hours used for the lines" id="bucket">
+            <button type="button" role="radio" data-bucket="all">All</button>
+            <button type="button" role="radio" data-bucket="open">Open</button>
+            <button type="button" role="radio" data-bucket="closed">Closed</button>
+          </div>
+        </div>
+      </div>
+      <div id="legend" class="legend" aria-label="Windows shown"></div>
+      <div id="readout" class="readout" aria-live="off"></div>
+      <div id="chart" class="chart"></div>
+      <p id="chart-note" class="note"></p>
+    </section>
+
+    <section class="panel overview-panel" aria-labelledby="overview-title">
+      <h2 id="overview-title"></h2>
+      <div id="overview" class="table-wrap"></div>
+    </section>
+  </main>
+
+  <footer class="method">
+    <h2>How the numbers are built</h2>
+    <ul>
+      <li>Source: Hyperliquid <code>fundingHistory</code> and <code>candleSnapshot</code> for the <code>xyz</code> DEX, captured once at the snapshot time above.</li>
+      <li>Annualized rate = average hourly funding rate in the window (and bucket) × 8,760.</li>
+      <li>Shorts received = share of hourly prints with a positive rate. A zero-rate hour does not count.</li>
+      <li>Windows trail back from the latest print. A window longer than the market's history uses all of it and is marked “partial”.</li>
+      <li>Rolling lines show the same average over the trailing window at every bar close; a gap means the window held no hours in that bucket (for example, open-hours 24h over a weekend).</li>
+      <li>Hyperliquid only serves the latest 5,000 hourly candles, so the 1h price chart begins in March 2026; 4h and 1D cover the full history.</li>
+    </ul>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script type="module" src="assets/app.js"></script>
+</body>
+</html>
