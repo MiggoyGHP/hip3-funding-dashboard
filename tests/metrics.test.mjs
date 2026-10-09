@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { annualize, windowStats, rollingLine, sampleAtCloses } from "../assets/metrics.js";
+import { annualize, windowStats, rollingLine, sampleAtCloses, diffLine } from "../assets/metrics.js";
 
 const H = 3600;
 // 10 consecutive hourly prints
@@ -72,4 +72,8 @@ test("sampleAtCloses takes last value at or before each bar close", () => {
   // bars of 2h opening at 0, 2H, 4H, 6H -> closes at 2H, 4H, 6H, 8H
   const out = sampleAtCloses(times, values, [0, 2 * H, 4 * H, 6 * H], 2 * H);
   assert.deepEqual(out, [null, 5, 6, null]);
+});
+
+test("diffLine subtracts element-wise and propagates nulls", () => {
+  assert.deepEqual(diffLine([5, null, 2, 1], [3, 1, null, 4]), [2, null, null, -3]);
 });

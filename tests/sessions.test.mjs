@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isOpenPrint, etParts } from "../assets/sessions.js";
+import { isOpenPrint, etParts, sessionOf } from "../assets/sessions.js";
 
 // Helper: unix seconds for an ET wall-clock time, given the UTC offset in hours (-4 EDT, -5 EST).
 const et = (y, mo, d, h, off) => Date.UTC(y, mo - 1, d, h - off) / 1000;
@@ -59,4 +59,26 @@ test("half-days close at 13:00", () => {
   // Thu 2026-12-24
   assert.equal(isOpenPrint(et(2026, 12, 24, 13, -5)), true);
   assert.equal(isOpenPrint(et(2026, 12, 24, 14, -5)), false);
+});
+
+test("sessionOf: normal week", () => {
+  // Fri 2026-01-09 .. Tue 2026-01-13 (EST)
+  assert.equal(sessionOf(et(2026, 1, 9, 16, -5)), "open");
+  assert.equal(sessionOf(et(2026, 1, 9, 17, -5)), "weekend");
+  assert.equal(sessionOf(et(2026, 1, 10, 12, -5)), "weekend");
+  assert.equal(sessionOf(et(2026, 1, 12, 0, -5)), "weekend"); // covers Sun 23:00-24:00
+  assert.equal(sessionOf(et(2026, 1, 12, 9, -5)), "weekend");
+  assert.equal(sessionOf(et(2026, 1, 12, 10, -5)), "open");
+  assert.equal(sessionOf(et(2026, 1, 13, 0, -5)), "weeknight");
+  assert.equal(sessionOf(et(2026, 1, 13, 9, -5)), "weeknight");
+  assert.equal(sessionOf(et(2026, 1, 13, 17, -5)), "weeknight");
+});
+
+test("sessionOf: holidays and half-days extend the weekend bucket", () => {
+  assert.equal(sessionOf(et(2025, 11, 26, 17, -5)), "weekend"); // night before Thanksgiving
+  assert.equal(sessionOf(et(2025, 11, 28, 13, -5)), "open");    // half-day
+  assert.equal(sessionOf(et(2025, 11, 28, 14, -5)), "weekend"); // after half-day close, Sat next
+  assert.equal(sessionOf(et(2026, 1, 19, 12, -5)), "weekend");  // MLK Day
+  assert.equal(sessionOf(et(2026, 1, 20, 9, -5)), "weekend");   // morning after MLK Day
+  assert.equal(sessionOf(et(2026, 12, 23, 17, -5)), "weeknight"); // next day is a half-day, still trading
 });

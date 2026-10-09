@@ -56,6 +56,11 @@ export function rollingLine(funding, mask, hours) {
   return out;
 }
 
+// Element-wise a - b; null where either side is null.
+export function diffLine(a, b) {
+  return a.map((v, i) => (v == null || b[i] == null ? null : v - b[i]));
+}
+
 // For each bar opening at barTimes[k] (bar covers (open, open + interval]),
 // take the value of the last print inside the bar; null when there is none.
 export function sampleAtCloses(times, values, barTimes, interval) {

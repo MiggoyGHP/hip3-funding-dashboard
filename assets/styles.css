@@ -186,6 +186,24 @@ td.n { color: var(--muted); font-size: 13px; }
 .overview td .st { display: block; font-size: 11px; color: var(--muted); font-weight: 500; }
 
 /* Chart */
+[hidden] { display: none !important; }
+.chart-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--hair); margin: -4px 0 14px; }
+.chart-tabs button {
+  background: none; border: 0; cursor: pointer; position: relative;
+  padding: 2px 0 10px; font-size: 14px; font-weight: 600; color: var(--muted);
+}
+.chart-tabs button:hover { color: var(--ink-2); }
+.chart-tabs button[aria-selected="true"] { color: var(--ink); }
+.chart-tabs button[aria-selected="true"]::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px;
+  height: 3px; background: var(--accent); border-radius: 3px 3px 0 0;
+}
+.pick { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.pick select {
+  font: inherit; font-size: 13px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--hair); border-radius: 999px; padding: 4px 10px; cursor: pointer;
+}
+.pick select:hover { border-color: var(--axis); }
 .chart-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .chart-head h2 { margin: 0; }
 .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

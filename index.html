@@ -43,9 +43,25 @@
     </section>
 
     <section class="panel chart-panel" aria-labelledby="chart-title">
+      <div class="chart-tabs" role="tablist" aria-label="Chart view">
+        <button type="button" role="tab" data-tab="windows">By window</button>
+        <button type="button" role="tab" data-tab="gap">Open vs closed</button>
+      </div>
       <div class="chart-head">
         <h2 id="chart-title">Rolling funding by window</h2>
-        <div class="controls">
+        <div class="controls" id="gap-controls" hidden>
+          <div class="seg small" role="radiogroup" aria-label="Rolling window" id="gap-window">
+            <button type="button" role="radio" data-gap-window="7d">7d</button>
+            <button type="button" role="radio" data-gap-window="30d">30d</button>
+          </div>
+          <label class="pick">Compare
+            <select id="gap-a" aria-label="First bucket"></select>
+          </label>
+          <label class="pick">with
+            <select id="gap-b" aria-label="Second bucket"></select>
+          </label>
+        </div>
+        <div class="controls" id="window-controls">
           <label class="check"><input type="checkbox" id="show-price" checked> Price chart</label>
           <div class="seg small" role="radiogroup" aria-label="Bar interval" id="interval">
             <button type="button" role="radio" data-interval="1h">1h</button>
@@ -79,6 +95,8 @@
       <li>Shorts received = share of hourly prints with a positive rate. A zero-rate hour does not count.</li>
       <li>Windows trail back from the latest print. A window longer than the market's history uses all of it and is marked “partial”.</li>
       <li>Rolling lines show the same average over the trailing window at every bar close; a gap means the window held no hours in that bucket (for example, open-hours 24h over a weekend).</li>
+      <li>Open vs closed tab: “Weeknights” are closed hours between two back-to-back trading days. “Weekends &amp; holidays” are closed hours in a stretch that includes a Saturday, Sunday or NYSE holiday, from the last close before it to the next open. Weeknights plus weekends &amp; holidays make up “Closed”.</li>
+      <li>The open vs closed chart plots one point per day: the trailing 7- or 30-day average at 00:00 UTC. Every point therefore covers the same mix of weekdays and weekend, and the latest point matches the table.</li>
       <li>Hyperliquid only serves the latest 5,000 hourly candles, so the 1h price chart begins in March 2026; 4h and 1D cover the full history.</li>
     </ul>
   </footer>

@@ -43,6 +43,25 @@ export function isOpenPrint(t) {
   return h >= 10 && h <= lastPrint;
 }
 
+// Calendar-day check on a New York date, shifted by `offset` days.
+function isTradingDay(y, m, d, offset = 0) {
+  const dt = new Date(Date.UTC(y, m - 1, d + offset));
+  const dow = dt.getUTCDay();
+  if (dow === 0 || dow === 6) return false;
+  const day = `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
+  return !HOLIDAYS.has(day);
+}
+
+// "open", "weeknight" (closed between two consecutive trading days) or
+// "weekend" (closed stretch that spans a weekend or NYSE holiday).
+export function sessionOf(t) {
+  if (isOpenPrint(t)) return "open";
+  const { y, m, d, h } = etParts(t);
+  if (!isTradingDay(y, m, d)) return "weekend";
+  const beforeOpen = h < 10;
+  return isTradingDay(y, m, d, beforeOpen ? -1 : 1) ? "weeknight" : "weekend";
+}
+
 // Offset (seconds) to add to a UTC timestamp so it displays as New York wall-clock time.
 export function etOffset(t) {
   const { y, m, d, h } = etParts(t);

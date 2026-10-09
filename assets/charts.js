@@ -2,7 +2,18 @@
 // so the time scale, zoom/pan and crosshair are shared by construction.
 
 const LWC = window.LightweightCharts;
-const pct = (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+const signed = (v) => {
+  const r = Math.round(v * 10) / 10 || 0; // avoid "-0.0"
+  return (r > 0 ? "+" : "") + r.toFixed(1);
+};
+const pct = (v) => signed(v) + "%";
+const pts = (v) => signed(v) + " pts";
+const fmtFor = (line) => (line.unit === "pts" ? pts : pct);
+
+function alpha(hex, a) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
 
 export class FundingChart {
   constructor(el, readoutEl) {
@@ -52,9 +63,10 @@ export class FundingChart {
       this.candleSeries = null;
     }
 
+    const zeroed = new Set();
     for (const line of spec.lines) {
-      const s = chart.addSeries(LWC.LineSeries, {
-        color: line.color,
+      const pane = fundingPane + (line.pane || 0);
+      const common = {
         lineWidth: 2,
         visible: line.visible,
         priceLineVisible: false,
@@ -62,21 +74,27 @@ export class FundingChart {
         crosshairMarkerRadius: 4,
         crosshairMarkerBorderColor: v("--surface"),
         crosshairMarkerBorderWidth: 2,
-        priceFormat: { type: "custom", formatter: pct, minMove: 0.01 },
-      }, fundingPane);
+        priceFormat: { type: "custom", formatter: fmtFor(line), minMove: 0.01 },
+      };
+      const s = line.type === "baseline"
+        ? chart.addSeries(LWC.BaselineSeries, {
+          ...common,
+          baseValue: { type: "price", price: 0 },
+          topLineColor: line.color, bottomLineColor: line.colorBelow,
+          topFillColor1: alpha(line.color, 0.16), topFillColor2: alpha(line.color, 0.04),
+          bottomFillColor1: alpha(line.colorBelow, 0.04), bottomFillColor2: alpha(line.colorBelow, 0.16),
+        }, pane)
+        : chart.addSeries(LWC.LineSeries, { ...common, color: line.color }, pane);
       this.lineSeries.set(line.key, { series: s, line });
+      if (!zeroed.has(pane)) {
+        zeroed.add(pane);
+        s.createPriceLine({ price: 0, color: v("--axis"), lineWidth: 1, lineStyle: LWC.LineStyle.Solid, axisLabelVisible: false });
+      }
     }
     this.setLineData(spec.lines);
-    const first = this.lineSeries.values().next().value;
-    if (first) {
-      first.series.createPriceLine({ price: 0, color: v("--axis"), lineWidth: 1, lineStyle: LWC.LineStyle.Solid, axisLabelVisible: false });
-    }
 
-    if (spec.candles) {
-      const panes = chart.panes();
-      panes[0].setStretchFactor(0.6);
-      panes[1].setStretchFactor(0.4);
-    }
+    const stretch = spec.paneStretch || (spec.candles ? [0.6, 0.4] : null);
+    if (stretch) chart.panes().forEach((p, i) => stretch[i] != null && p.setStretchFactor(stretch[i]));
 
     const ts = chart.timeScale();
     if (prevRange) {
@@ -136,7 +154,7 @@ export class FundingChart {
     for (const { line } of this.lineSeries.values()) {
       if (!line.visible) continue;
       const val = line.values[idx];
-      vals.push(`<span><i class="k" style="background:${line.color}"></i>${line.label} <b>${val == null ? "–" : pct(val)}</b></span>`);
+      vals.push(`<span><i class="k" style="background:${line.color}"></i>${line.label} <b>${val == null ? "–" : fmtFor(line)(val)}</b></span>`);
     }
     this.readoutEl.innerHTML = `<div class="row">${parts.join(" <span></span>")}</div><div class="row">${vals.join("")}</div>`;
   }

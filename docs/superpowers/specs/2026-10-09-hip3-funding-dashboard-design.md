@@ -98,3 +98,9 @@ Load the `dataviz` skill (palette, mark specs, light/dark tokens) and `frontend-
   - check the layout at 390px width;
   - take screenshots in light and dark mode.
 - After publishing, `curl -I https://miggoyghp.github.io/hip3-funding-dashboard/` returns 200, and a Playwright smoke test passes on the live URL.
+
+## Addendum (2026-10-09): Open vs closed gap view
+- The chart panel has two tabs. `By window` is unchanged. `Open vs closed` plots rolling 7d **or** 30d funding for bucket A and bucket B, with the gap A − B in a lower pane (a baseline series shaded in A's color above 0 and B's color below).
+- Buckets: Open, Closed, All hours, Weeknights, Weekends & holidays. They come from `sessionOf(t)` in `assets/sessions.js`, which uses the trading calendar, not the data.
+- The chart samples once a day at the 00:00 UTC bar close and starts once a full window of history exists. The latest point equals the stats table's 7d/30d values.
+- Picking the same bucket for A and B swaps the two, so they always differ.

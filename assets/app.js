@@ -1,8 +1,17 @@
-import { isOpenPrint, etOffset } from "./sessions.js";
-import { WINDOWS, windowStats, rollingLine, sampleAtCloses } from "./metrics.js";
+import { sessionOf, etOffset } from "./sessions.js";
+import { WINDOWS, windowStats, rollingLine, sampleAtCloses, diffLine } from "./metrics.js";
 import { FundingChart } from "./charts.js";
 
 const BUCKETS = { all: "All hours", open: "Market open", closed: "Market closed" };
+// Buckets offered in the open-vs-closed tab. Each keeps its color wherever it is drawn.
+const GAP_BUCKETS = {
+  open: { label: "Market open", short: "Open", color: "--s1", hue: "blue" },
+  closed: { label: "Market closed", short: "Closed", color: "--s2", hue: "orange" },
+  weeknight: { label: "Weeknights", short: "Weeknights", color: "--s3", hue: "teal" },
+  weekend: { label: "Weekends & holidays", short: "Weekends", color: "--s4", hue: "yellow" },
+  all: { label: "All hours", short: "All", color: "--s7", hue: "violet" },
+};
+const pick = (v, allowed, d) => (allowed.includes(v) ? v : d);
 const INTERVAL_SEC = { "1h": 3600, "4h": 14400, "1d": 86400 };
 const SERIES_VARS = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7"];
 const DEFAULT_LINES = ["7d", "30d", "60d", "90d", "itd"];
@@ -21,7 +30,12 @@ const state = {
   interval: store.get("interval", "4h"),
   showPrice: store.get("showPrice", true),
   lines: new Set(store.get("lines", DEFAULT_LINES)),
+  chartTab: pick(store.get("chartTab", "windows"), ["windows", "gap"], "windows"),
+  gapWindow: pick(store.get("gapWindow", "30d"), ["7d", "30d"], "30d"),
+  gapA: pick(store.get("gapA", "open"), Object.keys(GAP_BUCKETS), "open"),
+  gapB: pick(store.get("gapB", "closed"), Object.keys(GAP_BUCKETS), "closed"),
 };
+if (state.gapA === state.gapB) { state.gapA = "open"; state.gapB = "closed"; }
 
 let meta = null;
 const markets = new Map(); // ticker -> derived data
@@ -32,8 +46,14 @@ const chart = new FundingChart($("#chart"), $("#readout"));
 function derive(raw) {
   const f = raw.funding;
   const times = f.map((r) => r[0]);
-  const open = times.map(isOpenPrint);
-  const masks = { all: times.map(() => true), open, closed: open.map((o) => !o) };
+  const session = times.map(sessionOf);
+  const masks = {
+    all: times.map(() => true),
+    open: session.map((s) => s === "open"),
+    closed: session.map((s) => s !== "open"),
+    weeknight: session.map((s) => s === "weeknight"),
+    weekend: session.map((s) => s === "weekend"),
+  };
   const stats = {};
   for (const b of Object.keys(masks)) {
     stats[b] = Object.fromEntries(WINDOWS.map((w) => [w.key, windowStats(f, masks[b], w.hours)]));
@@ -181,6 +201,37 @@ function renderLegend() {
 }
 
 function renderChart(keepRange) {
+  if (state.chartTab === "gap") renderGapChart(keepRange);
+  else renderWindowChart(keepRange);
+}
+
+// Bucket A vs bucket B for one rolling window, sampled once a day, plus their gap.
+function renderGapChart(keepRange) {
+  const m = markets.get(state.ticker);
+  const css = getComputedStyle(document.documentElement);
+  const a = GAP_BUCKETS[state.gapA], b = GAP_BUCKETS[state.gapB];
+  const colorA = css.getPropertyValue(a.color).trim(), colorB = css.getPropertyValue(b.color).trim();
+  const w = state.gapWindow;
+  // Start once a full window of history exists; earlier points average only a few days.
+  const warm = m.times[0] - 3600 + WINDOWS.find((x) => x.key === w).hours * 3600;
+  const grid = barGrid(m, "1d").filter((g) => g + INTERVAL_SEC["1d"] >= warm);
+  const sample = (bucket) => sampleAtCloses(m.times, rolling(m, bucket)[w], grid, INTERVAL_SEC["1d"]);
+  const A = sample(state.gapA), B = sample(state.gapB);
+  chart.draw({
+    times: grid, interval: "1d", candles: null, keepRange, paneStretch: [0.58, 0.42],
+    lines: [
+      { key: "a", label: `${w} ${a.short}`, color: colorA, visible: true, values: A },
+      { key: "b", label: `${w} ${b.short}`, color: colorB, visible: true, values: B },
+      { key: "gap", label: `Gap (${a.short} − ${b.short})`, color: colorA, colorBelow: colorB,
+        visible: true, values: diffLine(A, B), pane: 1, type: "baseline", unit: "pts" },
+    ],
+  });
+  $("#chart-title").textContent = `${state.ticker} rolling ${w} funding: ${a.label.toLowerCase()} vs ${b.label.toLowerCase()}`;
+  $("#chart-note").textContent = `One point per day: the trailing ${parseInt(w, 10)}-day average at 00:00 UTC, starting once ${parseInt(w, 10)} days of history exist. ` +
+    `Lower pane = ${a.short} − ${b.short} in percentage points, shaded ${a.hue} where ${a.short} funding is higher and ${b.hue} where ${b.short} is higher.`;
+}
+
+function renderWindowChart(keepRange) {
   const m = markets.get(state.ticker);
   const { grid, lines } = lineSpecs(m);
   const times = displayTimes(grid, state.interval);
@@ -214,6 +265,14 @@ function syncControls() {
   document.querySelectorAll("[data-interval]").forEach((b) => b.setAttribute("aria-checked", b.dataset.interval === state.interval));
   document.querySelectorAll("[data-bucket]").forEach((b) => b.setAttribute("aria-checked", b.dataset.bucket === state.bucket));
   $("#show-price").checked = state.showPrice;
+  const gap = state.chartTab === "gap";
+  document.querySelectorAll("[data-tab]").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === state.chartTab));
+  $("#window-controls").hidden = gap;
+  $("#legend").hidden = gap;
+  $("#gap-controls").hidden = !gap;
+  document.querySelectorAll("[data-gap-window]").forEach((b) => b.setAttribute("aria-checked", b.dataset.gapWindow === state.gapWindow));
+  $("#gap-a").value = state.gapA;
+  $("#gap-b").value = state.gapB;
   const dark = document.documentElement.dataset.theme
     ? document.documentElement.dataset.theme === "dark"
     : matchMedia("(prefers-color-scheme: dark)").matches;
@@ -272,6 +331,29 @@ function bind() {
     state.showPrice = e.target.checked; store.set("showPrice", state.showPrice);
     renderChart(true);
   });
+  const options = Object.entries(GAP_BUCKETS).map(([k, b]) => `<option value="${k}">${b.label}</option>`).join("");
+  $("#gap-a").innerHTML = options;
+  $("#gap-b").innerHTML = options;
+  document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
+    if (state.chartTab === b.dataset.tab) return;
+    state.chartTab = b.dataset.tab; store.set("chartTab", state.chartTab);
+    syncControls(); renderChart(false);
+  }));
+  document.querySelectorAll("[data-gap-window]").forEach((b) => b.addEventListener("click", () => {
+    if (state.gapWindow === b.dataset.gapWindow) return;
+    state.gapWindow = b.dataset.gapWindow; store.set("gapWindow", state.gapWindow);
+    syncControls(); renderChart(true);
+  }));
+  // Picking the bucket already on the other side swaps the two, so A and B always differ.
+  const onPick = (side, other) => (e) => {
+    const v = e.target.value;
+    if (v === state[other]) state[other] = state[side];
+    state[side] = v;
+    store.set("gapA", state.gapA); store.set("gapB", state.gapB);
+    syncControls(); renderChart(true);
+  };
+  $("#gap-a").addEventListener("change", onPick("gapA", "gapB"));
+  $("#gap-b").addEventListener("change", onPick("gapB", "gapA"));
   $("#legend").addEventListener("change", (e) => {
     const k = e.target.dataset.line;
     if (!k) return;
