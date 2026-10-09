@@ -18,10 +18,8 @@
   <header class="masthead">
     <div class="masthead-text">
       <h1>Stock perp funding on Hyperliquid</h1>
-      <p class="sub">trade.xyz (HIP-3) perps, hourly funding annualized. Positive means longs pay and shorts receive.</p>
     </div>
     <div class="masthead-meta">
-      <p id="snapshot" class="snapshot"></p>
       <button id="theme-toggle" class="ghost-btn" type="button" aria-label="Switch color theme">Dark theme</button>
     </div>
   </header>
@@ -33,7 +31,6 @@
       <button type="button" role="radio" data-view="all">All hours</button>
       <button type="button" role="radio" data-view="split">Market open vs closed</button>
     </div>
-    <p class="hint">Open = NYSE regular session, 9:30–16:00 New York time. The 9:00–10:00 hour counts as open; holidays and half-days follow the NYSE calendar.</p>
   </div>
 
   <main class="grid">
@@ -86,20 +83,6 @@
       <div id="overview" class="table-wrap"></div>
     </section>
   </main>
-
-  <footer class="method">
-    <h2>How the numbers are built</h2>
-    <ul>
-      <li>Source: Hyperliquid <code>fundingHistory</code> and <code>candleSnapshot</code> for the <code>xyz</code> DEX, captured once at the snapshot time above.</li>
-      <li>Annualized rate = average hourly funding rate in the window (and bucket) × 8,760.</li>
-      <li>Shorts received = share of hourly prints with a positive rate. A zero-rate hour does not count.</li>
-      <li>Windows trail back from the latest print. A window longer than the market's history uses all of it and is marked “partial”.</li>
-      <li>Rolling lines show the same average over the trailing window at every bar close; a gap means the window held no hours in that bucket (for example, open-hours 24h over a weekend).</li>
-      <li>Open vs closed tab: “Weeknights” are closed hours between two back-to-back trading days. “Weekends &amp; holidays” are closed hours in a stretch that includes a Saturday, Sunday or NYSE holiday, from the last close before it to the next open. Weeknights plus weekends &amp; holidays make up “Closed”.</li>
-      <li>The open vs closed chart plots one point per day: the trailing 7- or 30-day average at 00:00 UTC. Every point therefore covers the same mix of weekdays and weekend, and the latest point matches the table.</li>
-      <li>Hyperliquid only serves the latest 5,000 hourly candles, so the 1h price chart begins in March 2026; 4h and 1D cover the full history.</li>
-    </ul>
-  </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
   <script type="module" src="assets/app.js"></script>

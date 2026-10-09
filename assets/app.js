@@ -381,12 +381,6 @@ async function boot() {
     $("#stats").textContent = "Couldn't load data/index.json. Serve this folder over HTTP (for example, python -m http.server) and reload.";
     return;
   }
-  const lastPrint = Math.max(...meta.tickers.map((t) => t.last));
-  const d = new Date(lastPrint * 1000);
-  const utc = d.toLocaleString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  const ny = d.toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  $("#snapshot").textContent = `Data through ${utc} UTC (${ny} New York)`;
-
   const saved = store.get("ticker", null);
   state.ticker = meta.tickers.some((t) => t.ticker === saved) ? saved : meta.tickers[0].ticker;
   bind();
