@@ -34,11 +34,17 @@ const state = {
   gapWindow: pick(store.get("gapWindow", "30d"), ["7d", "30d"], "30d"),
   gapA: pick(store.get("gapA", "open"), Object.keys(GAP_BUCKETS), "open"),
   gapB: pick(store.get("gapB", "closed"), Object.keys(GAP_BUCKETS), "closed"),
+  sortKey: pick(store.get("sortKey", "30d"), WINDOWS.map((w) => w.key), "30d"),
+  sortSide: pick(store.get("sortSide", "open"), ["open", "closed"], "open"),
 };
 if (state.gapA === state.gapB) { state.gapA = "open"; state.gapB = "closed"; }
 
 let meta = null;
-const markets = new Map(); // ticker -> derived data
+let order = []; // ids: screen group by 30d funding, then the watchlist
+const info = new Map(); // id -> index.json entry
+const markets = new Map(); // id -> derived data
+const GROUPS = { screen: "Funding ≥ 10%", watchlist: "Watchlist" };
+const NAV_GROUPS = { screen: "≥ 10%", watchlist: "Watchlist" }; // short enough for the vertical tab-strip label
 const chart = new FundingChart($("#chart"), $("#readout"));
 
 // ---------- data ----------
@@ -94,6 +100,34 @@ function displayTimes(ts, interval) {
 
 const fmtPct = (v) => (v == null ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1) + "%");
 const fmtStab = (v) => (v == null ? "–" : Math.round(v) + "%");
+const fmtVol = (v) => (v == null ? "–" : "$" + (v >= 1e9 ? (v / 1e9).toFixed(1) + "B" : (v / 1e6).toFixed(1) + "M"));
+const label = (id) => info.get(id).label;
+
+// Venue tag after the ticker for markets outside the xyz DEX.
+function nameHtml(id) {
+  const t = info.get(id);
+  return t.dex === "xyz" ? t.ticker : `${t.ticker}<span class="venue">${t.dex}</span>`;
+}
+
+// Trailing 7d/30d all-hours funding: computed once loaded, from index.json until then.
+function trailing(id) {
+  const m = markets.get(id), s = info.get(id).screen;
+  return m ? { a7: m.stats.all["7d"].ann, a30: m.stats.all["30d"].ann } : { a7: s.a7, a30: s.a30 };
+}
+
+// Sort value for the overview: the chosen window, in the view's bucket.
+function sortValue(id) {
+  const m = markets.get(id);
+  if (!m) return state.sortKey === "30d" ? info.get(id).screen.a30 : state.sortKey === "7d" ? info.get(id).screen.a7 : null;
+  const bucket = state.view === "split" ? state.sortSide : "all";
+  return m.stats[bucket][state.sortKey].ann;
+}
+
+function sortedGroup(group) {
+  const ids = order.filter((id) => info.get(id).group === group);
+  const v = (id) => sortValue(id) ?? -Infinity;
+  return ids.sort((a, b) => v(b) - v(a));
+}
 
 function tint(v) {
   if (v == null) return "";
@@ -116,10 +150,12 @@ function windowLabel(w, s) {
 
 function renderTickers() {
   const nav = $("#tickers");
-  nav.innerHTML = meta.tickers.map(({ ticker }) => {
-    const m = markets.get(ticker);
-    const itd = m ? m.stats.all.itd.ann : null;
-    return `<button type="button" role="tab" data-ticker="${ticker}" aria-selected="${ticker === state.ticker}">${ticker}<small>${m ? fmtPct(itd) + " since launch" : "loading"}</small></button>`;
+  let prevGroup = null;
+  nav.innerHTML = order.map((id) => {
+    const t = info.get(id), { a7, a30 } = trailing(id);
+    const head = t.group !== prevGroup ? `<span class="tgroup" aria-hidden="true">${NAV_GROUPS[t.group]}</span>` : "";
+    prevGroup = t.group;
+    return `${head}<button type="button" role="tab" data-ticker="${id}" aria-label="${t.label}" aria-selected="${id === state.ticker}"><span class="name">${nameHtml(id)}</span><small>7d ${fmtPct(a7)} · 30d ${fmtPct(a30)}</small></button>`;
   }).join("");
   nav.setAttribute("role", "tablist");
 }
@@ -127,7 +163,7 @@ function renderTickers() {
 function renderStats() {
   const m = markets.get(state.ticker);
   const launch = new Date(m.times[0] * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-  $("#stats-title").innerHTML = `${state.ticker} annualized funding <span class="muted">since ${launch}</span>`;
+  $("#stats-title").innerHTML = `${label(state.ticker)} annualized funding <span class="muted">since ${launch}</span>`;
   let html;
   if (state.view === "all") {
     html = `<table><thead><tr><th>Window</th><th>Annualized</th><th>Shorts received</th><th>Hours</th></tr></thead><tbody>` +
@@ -157,24 +193,43 @@ function renderOverview() {
   $("#overview-title").textContent = split
     ? "All tickers: market open vs closed, annualized"
     : "All tickers: annualized funding, all hours";
-  const head = `<tr><th>Ticker</th>${WINDOWS.map((w) => `<th>${w.label}</th>`).join("")}</tr>`;
-  const rows = meta.tickers.map(({ ticker }) => {
-    const m = markets.get(ticker);
-    if (!m) return `<tr><td class="tk">${ticker}</td><td colspan="${WINDOWS.length}">Loading…</td></tr>`;
-    const cells = WINDOWS.map((w) => {
-      if (!split) {
-        const s = m.stats.all[w.key];
-        return `<td class="rate" style="${tint(s.ann)}">${fmtPct(s.ann)}<span class="st">${fmtStab(s.stability)} shorts recv.</span></td>`;
-      }
-      const o = m.stats.open[w.key], c = m.stats.closed[w.key];
-      return `<td><div class="pair">
-        <span style="${tint(o.ann)}"><em>Open</em>${fmtPct(o.ann)} <em>${fmtStab(o.stability)}</em></span>
-        <span style="${tint(c.ann)}"><em>Closed</em>${fmtPct(c.ann)} <em>${fmtStab(c.stability)}</em></span>
-      </div></td>`;
-    }).join("");
-    return `<tr data-ticker="${ticker}" class="${ticker === state.ticker ? "current" : ""}"><td class="tk">${ticker}</td>${cells}</tr>`;
+  const sideLabel = state.sortSide === "open" ? "Open" : "Closed";
+  const head = `<tr><th>Ticker</th>${WINDOWS.map((w) => {
+    const on = w.key === state.sortKey;
+    const hint = split ? (on ? `Sorted by ${sideLabel.toLowerCase()}; click to sort by ${state.sortSide === "open" ? "closed" : "open"}` : "Sort by open")
+      : "Sort by this window";
+    return `<th aria-sort="${on ? "descending" : "none"}"><button type="button" class="sort" data-sort="${w.key}" title="${hint}">${w.label}${on ? `${split ? ` · ${sideLabel}` : ""} <span aria-hidden="true">▾</span>` : ""}</button></th>`;
+  }).join("")}<th title="Average daily notional volume on Hyperliquid, last 30 completed UTC days">Avg vol 30d</th></tr>`;
+  const cols = WINDOWS.length + 2;
+  const r = meta.rules;
+  const dividers = {
+    screen: `${GROUPS.screen}: 7d and 30d funding ≥ ${r.minFunding}%, 30d average volume over ${fmtVol(r.minVolume)}`,
+    watchlist: "Watchlist: tracked, not passing the screen",
+  };
+  const rows = Object.keys(GROUPS).flatMap((g) => {
+    const ids = sortedGroup(g);
+    if (!ids.length) return [];
+    return [`<tr class="divider"><td colspan="${cols}">${dividers[g]}</td></tr>`, ...ids.map((id) => overviewRow(id, split))];
   }).join("");
   $("#overview").innerHTML = `<table class="overview"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+}
+
+function overviewRow(id, split) {
+  const m = markets.get(id);
+  const vol = `<td class="vol">${fmtVol(info.get(id).screen.vol30)}</td>`;
+  if (!m) return `<tr data-ticker="${id}"><td class="tk">${nameHtml(id)}</td><td colspan="${WINDOWS.length}">Loading…</td>${vol}</tr>`;
+  const cells = WINDOWS.map((w) => {
+    if (!split) {
+      const s = m.stats.all[w.key];
+      return `<td class="rate" style="${tint(s.ann)}">${fmtPct(s.ann)}<span class="st">${fmtStab(s.stability)} shorts recv.</span></td>`;
+    }
+    const o = m.stats.open[w.key], c = m.stats.closed[w.key];
+    return `<td><div class="pair">
+      <span style="${tint(o.ann)}"><em>Open</em>${fmtPct(o.ann)} <em>${fmtStab(o.stability)}</em></span>
+      <span style="${tint(c.ann)}"><em>Closed</em>${fmtPct(c.ann)} <em>${fmtStab(c.stability)}</em></span>
+    </div></td>`;
+  }).join("");
+  return `<tr data-ticker="${id}" class="${id === state.ticker ? "current" : ""}"><td class="tk">${nameHtml(id)}</td>${cells}${vol}</tr>`;
 }
 
 function lineSpecs(m) {
@@ -226,7 +281,7 @@ function renderGapChart(keepRange) {
         visible: true, values: diffLine(A, B), pane: 1, type: "baseline", unit: "pts" },
     ],
   });
-  $("#chart-title").textContent = `${state.ticker} rolling ${w} funding: ${a.label.toLowerCase()} vs ${b.label.toLowerCase()}`;
+  $("#chart-title").textContent = `${label(state.ticker)} rolling ${w} funding: ${a.label.toLowerCase()} vs ${b.label.toLowerCase()}`;
   $("#chart-note").textContent = `One point per day: the trailing ${parseInt(w, 10)}-day average at 00:00 UTC, starting once ${parseInt(w, 10)} days of history exist. ` +
     `Lower pane = ${a.short} − ${b.short} in percentage points, shaded ${a.hue} where ${a.short} funding is higher and ${b.hue} where ${b.short} is higher.`;
 }
@@ -242,7 +297,7 @@ function renderWindowChart(keepRange) {
     candles = raw.map((c, i) => ({ time: dt[i], open: c[1], high: c[2], low: c[3], close: c[4] }));
   }
   chart.draw({ times, interval: state.interval, candles, lines, keepRange });
-  $("#chart-title").textContent = `${state.ticker} rolling annualized funding, ${BUCKETS[state.bucket].toLowerCase()}`;
+  $("#chart-title").textContent = `${label(state.ticker)} rolling annualized funding, ${BUCKETS[state.bucket].toLowerCase()}`;
   const notes = [];
   if (state.showPrice && state.interval === "1h" && candles && candles.length) {
     const d = new Date(m.raw.candles["1h"][0][0] * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -257,7 +312,7 @@ function renderWindowChart(keepRange) {
 function updateLinesOnly() {
   const m = markets.get(state.ticker);
   chart.setLineData(lineSpecs(m).lines);
-  $("#chart-title").textContent = `${state.ticker} rolling annualized funding, ${BUCKETS[state.bucket].toLowerCase()}`;
+  $("#chart-title").textContent = `${label(state.ticker)} rolling annualized funding, ${BUCKETS[state.bucket].toLowerCase()}`;
 }
 
 function syncControls() {
@@ -304,13 +359,23 @@ function bind() {
   });
   $("#tickers").addEventListener("keydown", (e) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    const list = meta.tickers.map((x) => x.ticker);
-    const i = list.indexOf(state.ticker) + (e.key === "ArrowRight" ? 1 : -1);
-    const next = list[(i + list.length) % list.length];
+    const i = order.indexOf(state.ticker) + (e.key === "ArrowRight" ? 1 : -1);
+    const next = order[(i + order.length) % order.length];
     selectTicker(next);
     $(`#tickers [data-ticker="${next}"]`).focus();
   });
   $("#overview").addEventListener("click", (e) => {
+    // Header click sorts by that window; in split view a repeat click flips open/closed.
+    const s = e.target.closest("[data-sort]");
+    if (s) {
+      const key = s.dataset.sort;
+      if (key === state.sortKey && state.view === "split") state.sortSide = state.sortSide === "open" ? "closed" : "open";
+      else if (key !== state.sortKey) { state.sortKey = key; state.sortSide = "open"; }
+      store.set("sortKey", state.sortKey); store.set("sortSide", state.sortSide);
+      renderOverview();
+      $(`#overview [data-sort="${key}"]`).focus();
+      return;
+    }
     const r = e.target.closest("tr[data-ticker]");
     if (r) { selectTicker(r.dataset.ticker); $("#tickers").scrollIntoView({ behavior: "smooth", block: "start" }); }
   });
@@ -381,21 +446,24 @@ async function boot() {
     $("#stats").textContent = "Couldn't load data/index.json. Serve this folder over HTTP (for example, python -m http.server) and reload.";
     return;
   }
+  for (const t of meta.tickers) info.set(t.id, t);
+  const by30 = (g) => meta.tickers.filter((t) => t.group === g).sort((a, b) => b.screen.a30 - a.screen.a30).map((t) => t.id);
+  order = Object.keys(GROUPS).flatMap(by30);
   const saved = store.get("ticker", null);
-  state.ticker = meta.tickers.some((t) => t.ticker === saved) ? saved : meta.tickers[0].ticker;
+  state.ticker = info.has(saved) ? saved : order[0];
   bind();
   syncControls();
   renderTickers();
   renderOverview();
 
   const first = state.ticker;
-  const load = async (t) => {
-    const raw = await (await fetch(`data/${t}.json`)).json();
-    markets.set(t, derive(raw));
+  const load = async (id) => {
+    const raw = await (await fetch(`data/${id}.json`)).json();
+    markets.set(id, derive(raw));
   };
   await load(first);
   renderAll(false);
-  await Promise.all(meta.tickers.map((x) => x.ticker).filter((t) => t !== first).map(load));
+  await Promise.all(order.filter((id) => id !== first).map(load));
   renderTickers();
   renderOverview();
 }

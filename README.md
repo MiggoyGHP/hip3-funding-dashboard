@@ -2,13 +2,25 @@
 
 Live: https://miggoyghp.github.io/hip3-funding-dashboard/
 
-This dashboard studies funding on Hyperliquid HIP-3 stock perps from the `xyz` DEX (trade.xyz): NVDA, GOOGL, META, MU, SNDK, CRCL, INTC and HOOD.
+This dashboard studies funding on Hyperliquid HIP-3 stock perps. It lists two groups:
 
+- **Funding ≥ 10%:** every US-listed stock or stock ETF on any live HIP-3 DEX that passes both rules below. Each run of the fetch script redoes this screen, so names enter and leave over time.
+  - Trailing 7d **and** 30d annualized funding are both at least 10%.
+  - Average daily notional volume on Hyperliquid over the last 30 completed UTC days (volume × (H+L+C)/3) is above $2M.
+- **Watchlist:** NVDA, GOOGL, META, MU, SNDK, CRCL, INTC and HOOD on `xyz` (trade.xyz). These are always listed; any of them that pass the screen move into the first group.
+
+When the same ticker trades on several DEXes, each venue is screened separately. A market outside `xyz` is labeled with its DEX, for example `NBIS io`. The screen leaves out indices, commodities, FX, rates and bond ETFs, crypto indices, pre-IPO names and non-US listings.
+
+Features:
+
+- **Ticker tabs:** each tab shows trailing 7d and 30d funding. Within each group, tabs are ordered by 30d funding.
 - **Annualized funding by window:** 24h, 7d, 30d, 60d, 90d, 1y and since inception. View it across all hours, or split into US market open and market closed.
 - **Funding stability:** the share of hours in which shorts received funding (rate > 0).
 - **Rolling chart:** the rolling annualized funding for every window as separate lines, so you can see crossovers. It sits as a study beneath the OHLC price chart (1h / 4h / 1D), with zoom and crosshair synced. Turn the price chart off to see the funding lines alone.
 - **Open vs closed tab:** the rolling 7d or 30d funding of one session bucket against another, plus the gap between them in its own pane, so you can see whether the gap is narrowing or widening. The buckets are Open, Closed, All hours, Weeknights and Weekends & holidays.
-- **Cross-ticker grid:** every window for every ticker in one table.
+- **Cross-ticker grid:** every window for every ticker in one table, plus 30d average volume.
+  - Sorted by 30d by default; click a window header to sort by it.
+  - In the open vs closed view, clicking the sorted header again switches between sorting by open and by closed.
 
 ## Definitions
 
@@ -23,11 +35,15 @@ This dashboard studies funding on Hyperliquid HIP-3 stock perps from the `xyz` D
 
 ## Data
 
-`data/*.json` is a one-time snapshot. To refresh it:
+`data/*.json` is a one-time snapshot. Each market's file is `data/{dex}-{TICKER}.json`, for example `xyz-NVDA.json`. `data/index.json` lists every market with its group and the 7d, 30d and volume figures used by the screen.
+
+To refresh the data and redo the screen:
 
 ```sh
-python scripts/fetch_data.py   # stdlib only, takes a few minutes
+python scripts/fetch_data.py   # stdlib only, takes about 10 minutes
 ```
+
+The script finds every live HIP-3 market and screens the ones whose symbol is in `US_EQUITY`. It prints a ranked table, then fetches full history for the passing markets and the watchlist. Files for markets that drop out are deleted. It also lists live symbols that are in neither `US_EQUITY` nor `NOT_EQUITY`. These are skipped, so classify each one in the script and re-run if it could be a US stock or stock ETF.
 
 Hyperliquid's `candleSnapshot` returns only the latest 5,000 candles per interval. That means 1h price bars start in March 2026, while 4h and 1D bars reach back to each market's launch.
 

@@ -1,7 +1,13 @@
-"""Snapshot Hyperliquid HIP-3 (xyz DEX) funding history and candles into data/*.json.
+"""Screen Hyperliquid HIP-3 stock perps and snapshot funding history and candles into data/*.json.
 
 Usage:  python scripts/fetch_data.py
-Stdlib only. Re-run any time to refresh the snapshot.
+Stdlib only. Re-run any time to refresh the snapshot; it re-screens every live market,
+so names can enter or leave the list. Takes about 10 minutes.
+
+A market is listed when it is a US-listed stock or stock ETF and
+  - trailing 7d and 30d annualized funding are both >= MIN_FUNDING, and
+  - average daily notional volume over the last 30 completed UTC days is > MIN_VOLUME.
+WATCHLIST coins are always listed.
 """
 import json
 import time
@@ -11,12 +17,38 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 API = "https://api.hyperliquid.xyz/info"
-DEX = "xyz"
-TICKERS = ["NVDA", "GOOGL", "META", "MU", "SNDK", "CRCL", "INTC", "HOOD"]
+WATCHLIST = ["xyz:NVDA", "xyz:GOOGL", "xyz:META", "xyz:MU", "xyz:SNDK", "xyz:CRCL", "xyz:INTC", "xyz:HOOD"]
+MIN_FUNDING = 10.0          # annualized %, both 7d and 30d
+MIN_VOLUME = 2_000_000      # USD per day, 30-day average
 CANDLE_INTERVALS = ["1d", "4h", "1h"]
 PAGE = 500
 PAUSE = 1.0
+DAY = 86400
 OUT = Path(__file__).resolve().parent.parent / "data"
+
+# US-listed single stocks (ADRs included) and stock ETFs, by symbol. Symbols mean the
+# same thing on every DEX. Anything not here is skipped by the screen.
+ETFS = {"URNM", "EWY", "EWJ", "EWZ", "EWT", "XLE", "XBI", "DRAM", "SMH", "SOXL", "MAGS",
+        "KSTR", "NCLD", "KORU", "IGV"}
+STOCKS = {
+    "TSLA", "NVDA", "HOOD", "INTC", "PLTR", "COIN", "META", "AAPL", "MSFT", "ORCL", "GOOGL",
+    "AMZN", "AMD", "MU", "SNDK", "MSTR", "CRCL", "NFLX", "COST", "LLY", "TSM", "RIVN", "BABA",
+    "USAR", "CRWV", "GME", "HIMS", "DKNG", "LITE", "BX", "PURRDAT", "MRVL", "RKLB", "BIRD",
+    "ZM", "EBAY", "ARM", "ASML", "BB", "QNT", "DELL", "IBM", "AVGO", "NOW", "NBIS", "WDC",
+    "NOK", "BE", "QCOM", "BOT", "AMAT", "GEV", "IREN", "NET", "CRWD", "RDDT", "AAOI", "MRNA",
+    "BMNR", "CVX", "LRCX", "UMC", "TWST", "GLW", "COHR", "CRDO", "STX", "VST", "TER", "CIEN",
+    "MELI", "SMCI", "SOFI", "TTWO", "CIFR", "IONQ", "GPRO",
+}
+US_EQUITY = {**{s: "stock" for s in STOCKS}, **{s: "etf" for s in ETFS}}
+# Known non-equities (indices, commodities, FX, rates, crypto, pre-IPO, non-US listings).
+# Only used to keep them out of the "unclassified" warning.
+NOT_EQUITY = {
+    "XYZ100", "GOLD", "SILVER", "JPY", "EUR", "GBP", "CL", "COPPER", "NATGAS", "PLATINUM",
+    "PALLADIUM", "BRENTOIL", "HO", "SP500", "KR200", "JP225", "TLT", "STRC", "SKHX", "SMSN",
+    "SOFTBANK", "HYUNDAI", "KIOXIA", "GIGADEV", "CXMT", "MINIMAX", "ZHIPU", "UNITREE", "SHEIN",
+    "OURA", "TOTAL2", "OTHERS", "BTCD", "10Y", "30Y", "2Y", "ANSEM", "TREAD", "US500", "USBOND",
+    "SMALL2000", "USTECH", "BVIV", "OAI", "ANTH", "TCNT", "XIAOMI",
+}
 
 
 def post(body, retries=6):
@@ -42,8 +74,8 @@ def post(body, retries=6):
     raise RuntimeError(f"giving up on {body}")
 
 
-def fetch_funding(coin):
-    rows, start = {}, 0
+def fetch_funding(coin, start_ms=0):
+    rows, start = {}, start_ms
     while True:
         page = post({"type": "fundingHistory", "coin": coin, "startTime": start})
         for r in page:
@@ -55,38 +87,123 @@ def fetch_funding(coin):
     return [[(t // 1000) // 3600 * 3600, rows[t]] for t in sorted(rows)]
 
 
-def fetch_candles(coin, interval):
+def fetch_candles(coin, interval, start_ms=0):
     now_ms = int(time.time() * 1000)
     page = post({"type": "candleSnapshot",
-                 "req": {"coin": coin, "interval": interval, "startTime": 0, "endTime": now_ms}})
+                 "req": {"coin": coin, "interval": interval, "startTime": start_ms, "endTime": now_ms}})
     return [[c["t"] // 1000, float(c["o"]), float(c["h"]), float(c["l"]), float(c["c"]), float(c["v"])]
             for c in sorted(page, key=lambda c: c["t"])]
+
+
+def annualized(funding, days):
+    """Mean hourly rate over (last - days, last], annualized in %; same as the dashboard."""
+    if not funding:
+        return None
+    cutoff = funding[-1][0] - days * DAY
+    rates = [r for t, r in funding if t > cutoff]
+    return sum(rates) / len(rates) * 8760 * 100
+
+
+def avg_volume(daily, today, days=30):
+    """Average daily notional (volume x typical price) over the last `days` completed UTC days."""
+    done = [c for c in daily if c[0] < today][-days:]
+    if not done:
+        return 0.0
+    return sum(v * (h + l + c) / 3 for _, _, h, l, c, v in done) / len(done)
 
 
 def iso(t):
     return datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%d %H:%M")
 
 
+def live_markets():
+    coins = []
+    for d in post({"type": "perpDexs"}):
+        if not d:
+            continue  # the main (non-HIP-3) DEX
+        meta, _ = post({"type": "metaAndAssetCtxs", "dex": d["name"]})
+        coins += [u["name"] for u in meta["universe"] if not u.get("isDelisted")]
+    return coins
+
+
+def screen(coins):
+    now = int(time.time())
+    today = now // DAY * DAY
+    results, unclassified = {}, []
+    for coin in coins:
+        sym = coin.split(":", 1)[1]
+        if sym not in US_EQUITY and coin not in WATCHLIST:
+            if sym not in NOT_EQUITY:
+                unclassified.append(coin)
+            continue
+        f = fetch_funding(coin, (now - 30 * DAY) * 1000)
+        a7, a30 = annualized(f, 7), annualized(f, 30)
+        ok_funding = a7 is not None and a7 >= MIN_FUNDING and a30 >= MIN_FUNDING
+        vol = None
+        if ok_funding or coin in WATCHLIST:
+            vol = avg_volume(fetch_candles(coin, "1d", (today - 31 * DAY) * 1000), today)
+        results[coin] = {"a7": a7, "a30": a30, "vol30": vol,
+                         "pass": ok_funding and vol is not None and vol > MIN_VOLUME}
+        print(f"  {coin:16s} 7d {a7 or 0:7.1f}%  30d {a30 or 0:7.1f}%  "
+              f"vol {'' if vol is None else f'${vol / 1e6:.1f}M':>8s}  {'PASS' if results[coin]['pass'] else ''}",
+              flush=True)
+    return results, unclassified
+
+
 def main():
     OUT.mkdir(exist_ok=True)
-    meta = {"dex": DEX, "tickers": [], "snapshot": int(time.time())}
-    for tk in TICKERS:
-        coin = f"{DEX}:{tk}"
-        print(f"{coin}: funding...", flush=True)
+    print("discovering live HIP-3 markets...", flush=True)
+    coins = live_markets()
+    print(f"{len(coins)} live markets; screening...", flush=True)
+    results, unclassified = screen(coins)
+
+    passed = sorted((c for c, r in results.items() if r["pass"]), key=lambda c: -results[c]["a30"])
+    print(f"\n{len(passed)} pass (7d and 30d >= {MIN_FUNDING}%, 30d avg volume > ${MIN_VOLUME / 1e6:.0f}M):")
+    for c in passed:
+        r = results[c]
+        print(f"  {c:16s} 7d {r['a7']:6.1f}%  30d {r['a30']:6.1f}%  vol ${r['vol30'] / 1e6:.1f}M")
+    if unclassified:
+        print("\nunclassified (add to US_EQUITY or NOT_EQUITY): " + ", ".join(unclassified))
+
+    listed = passed + [c for c in WATCHLIST if c not in passed]
+    missing = [c for c in WATCHLIST if c not in coins]
+    if missing:
+        raise RuntimeError(f"watchlist coins not live: {missing}")
+
+    meta = {"snapshot": int(time.time()),
+            "rules": {"minFunding": MIN_FUNDING, "minVolume": MIN_VOLUME, "volumeWindow": "30d"},
+            "tickers": []}
+    today = meta["snapshot"] // DAY * DAY
+    for coin in listed:
+        dex, tk = coin.split(":", 1)
+        fid = f"{dex}-{tk}"
+        print(f"\n{coin}: funding...", flush=True)
         funding = fetch_funding(coin)
-        candles = {}
-        for iv in CANDLE_INTERVALS:
-            candles[iv] = fetch_candles(coin, iv)
+        candles = {iv: fetch_candles(coin, iv) for iv in CANDLE_INTERVALS}
         gaps = [(funding[i - 1][0], funding[i][0]) for i in range(1, len(funding))
                 if funding[i][0] - funding[i - 1][0] != 3600]
         print(f"  {len(funding)} prints {iso(funding[0][0])} -> {iso(funding[-1][0])} UTC, "
               f"{len(gaps)} gaps; candles " + ", ".join(f"{k}={len(v)}" for k, v in candles.items()))
         for a, b in gaps[:5]:
             print(f"    gap {iso(a)} -> {iso(b)} ({(b - a) // 3600}h)")
-        (OUT / f"{tk}.json").write_text(json.dumps(
+        (OUT / f"{fid}.json").write_text(json.dumps(
             {"coin": coin, "funding": funding, "candles": candles}, separators=(",", ":")))
-        meta["tickers"].append({"ticker": tk, "coin": coin, "inception": funding[0][0],
-                                "last": funding[-1][0], "prints": len(funding)})
+        meta["tickers"].append({
+            "id": fid, "coin": coin, "dex": dex, "ticker": tk,
+            "label": tk if dex == "xyz" else f"{tk} · {dex}",
+            "kind": US_EQUITY.get(tk, "stock"),
+            "group": "screen" if coin in passed else "watchlist",
+            # Recomputed from the stored history so they match what the dashboard shows.
+            "screen": {"a7": annualized(funding, 7), "a30": annualized(funding, 30),
+                       "vol30": avg_volume(candles["1d"], today)},
+            "inception": funding[0][0], "last": funding[-1][0], "prints": len(funding),
+        })
+
+    keep = {f"{t['id']}.json" for t in meta["tickers"]} | {"index.json"}
+    for p in OUT.glob("*.json"):
+        if p.name not in keep:
+            print(f"removing stale {p.name}")
+            p.unlink()
     (OUT / "index.json").write_text(json.dumps(meta, indent=2))
     print("done")
 

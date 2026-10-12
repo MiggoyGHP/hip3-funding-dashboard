@@ -1,62 +1,197 @@
 {
-  "dex": "xyz",
+  "snapshot": 1791785575,
+  "rules": {
+    "minFunding": 10.0,
+    "minVolume": 2000000,
+    "volumeWindow": "30d"
+  },
   "tickers": [
     {
-      "ticker": "NVDA",
-      "coin": "xyz:NVDA",
-      "inception": 1762981200,
-      "last": 1791511200,
-      "prints": 7926
+      "id": "io-NBIS",
+      "coin": "io:NBIS",
+      "dex": "io",
+      "ticker": "NBIS",
+      "label": "NBIS \u00b7 io",
+      "kind": "stock",
+      "group": "screen",
+      "screen": {
+        "a7": 21.682080399999997,
+        "a30": 22.916331185,
+        "vol30": 3063609.391938889
+      },
+      "inception": 1787925600,
+      "last": 1791784800,
+      "prints": 1073
     },
     {
-      "ticker": "GOOGL",
-      "coin": "xyz:GOOGL",
-      "inception": 1763485200,
-      "last": 1791511200,
-      "prints": 7786
+      "id": "xyz-MSTR",
+      "coin": "xyz:MSTR",
+      "dex": "xyz",
+      "ticker": "MSTR",
+      "label": "MSTR",
+      "kind": "stock",
+      "group": "screen",
+      "screen": {
+        "a7": 11.206662264285715,
+        "a30": 13.264593966666666,
+        "vol30": 12998401.384069556
+      },
+      "inception": 1764691200,
+      "last": 1791784800,
+      "prints": 7527
     },
     {
-      "ticker": "META",
-      "coin": "xyz:META",
-      "inception": 1763650800,
-      "last": 1791511200,
-      "prints": 7740
-    },
-    {
-      "ticker": "MU",
-      "coin": "xyz:MU",
-      "inception": 1766163600,
-      "last": 1791511200,
-      "prints": 7042
-    },
-    {
-      "ticker": "SNDK",
-      "coin": "xyz:SNDK",
-      "inception": 1768230000,
-      "last": 1791511200,
-      "prints": 6468
-    },
-    {
-      "ticker": "CRCL",
+      "id": "xyz-CRCL",
       "coin": "xyz:CRCL",
+      "dex": "xyz",
+      "ticker": "CRCL",
+      "label": "CRCL",
+      "kind": "stock",
+      "group": "screen",
+      "screen": {
+        "a7": 13.835828178571429,
+        "a30": 12.565645611666667,
+        "vol30": 33917134.0706058
+      },
       "inception": 1765814400,
-      "last": 1791511200,
-      "prints": 7139
+      "last": 1791784800,
+      "prints": 7215
     },
     {
-      "ticker": "INTC",
+      "id": "xyz-PURRDAT",
+      "coin": "xyz:PURRDAT",
+      "dex": "xyz",
+      "ticker": "PURRDAT",
+      "label": "PURRDAT",
+      "kind": "stock",
+      "group": "screen",
+      "screen": {
+        "a7": 28.532927042857143,
+        "a30": 10.708531451666667,
+        "vol30": 4581837.050844445
+      },
+      "inception": 1778788800,
+      "last": 1791784800,
+      "prints": 3611
+    },
+    {
+      "id": "xyz-NVDA",
+      "coin": "xyz:NVDA",
+      "dex": "xyz",
+      "ticker": "NVDA",
+      "label": "NVDA",
+      "kind": "stock",
+      "group": "watchlist",
+      "screen": {
+        "a7": 5.481283735714285,
+        "a30": 5.805201265,
+        "vol30": 50530647.94791522
+      },
+      "inception": 1762981200,
+      "last": 1791784800,
+      "prints": 8002
+    },
+    {
+      "id": "xyz-GOOGL",
+      "coin": "xyz:GOOGL",
+      "dex": "xyz",
+      "ticker": "GOOGL",
+      "label": "GOOGL",
+      "kind": "stock",
+      "group": "watchlist",
+      "screen": {
+        "a7": 6.220767478571428,
+        "a30": 7.762747973333334,
+        "vol30": 22895490.583276
+      },
+      "inception": 1763485200,
+      "last": 1791784800,
+      "prints": 7862
+    },
+    {
+      "id": "xyz-META",
+      "coin": "xyz:META",
+      "dex": "xyz",
+      "ticker": "META",
+      "label": "META",
+      "kind": "stock",
+      "group": "watchlist",
+      "screen": {
+        "a7": 5.644431435714286,
+        "a30": 7.812740198333333,
+        "vol30": 41933667.261068225
+      },
+      "inception": 1763650800,
+      "last": 1791784800,
+      "prints": 7816
+    },
+    {
+      "id": "xyz-MU",
+      "coin": "xyz:MU",
+      "dex": "xyz",
+      "ticker": "MU",
+      "label": "MU",
+      "kind": "stock",
+      "group": "watchlist",
+      "screen": {
+        "a7": 5.843076428571429,
+        "a30": 7.461581728333333,
+        "vol30": 73897735.86106656
+      },
+      "inception": 1766163600,
+      "last": 1791784800,
+      "prints": 7118
+    },
+    {
+      "id": "xyz-SNDK",
+      "coin": "xyz:SNDK",
+      "dex": "xyz",
+      "ticker": "SNDK",
+      "label": "SNDK",
+      "kind": "stock",
+      "group": "watchlist",
+      "screen": {
+        "a7": 10.117631578571428,
+        "a30": 5.706711368333334,
+        "vol30": 95648628.43564777
+      },
+      "inception": 1768230000,
+      "last": 1791784800,
+      "prints": 6544
+    },
+    {
+      "id": "xyz-INTC",
       "coin": "xyz:INTC",
+      "dex": "xyz",
+      "ticker": "INTC",
+      "label": "INTC",
+      "kind": "stock",
+      "group": "watchlist",
+      "screen": {
+        "a7": 7.689180207142858,
+        "a30": 9.106586966666667,
+        "vol30": 31313338.05222089
+      },
       "inception": 1764774000,
-      "last": 1791511200,
-      "prints": 7428
+      "last": 1791784800,
+      "prints": 7504
     },
     {
-      "ticker": "HOOD",
+      "id": "xyz-HOOD",
       "coin": "xyz:HOOD",
+      "dex": "xyz",
+      "ticker": "HOOD",
+      "label": "HOOD",
+      "kind": "stock",
+      "group": "watchlist",
+      "screen": {
+        "a7": 8.210373092857143,
+        "a30": 8.104753825,
+        "vol30": 14418557.403606445
+      },
       "inception": 1764169200,
-      "last": 1791511200,
-      "prints": 7596
+      "last": 1791784800,
+      "prints": 7672
     }
-  ],
-  "snapshot": 1791513773
+  ]
 }

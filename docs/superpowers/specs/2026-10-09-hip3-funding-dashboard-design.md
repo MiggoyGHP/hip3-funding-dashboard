@@ -104,3 +104,15 @@ Load the `dataviz` skill (palette, mark specs, light/dark tokens) and `frontend-
 - Buckets: Open, Closed, All hours, Weeknights, Weekends & holidays. They come from `sessionOf(t)` in `assets/sessions.js`, which uses the trading calendar, not the data.
 - The chart samples once a day at the 00:00 UTC bar close and starts once a full window of history exists. The latest point equals the stats table's 7d/30d values.
 - Picking the same bucket for A and B swaps the two, so they always differ.
+
+## Addendum (2026-10-12): Funding and liquidity screen
+- **Universe:** every non-delisted market on every HIP-3 DEX from `perpDexs`. On 2026-10-12 the live ones were xyz, para, io and mkts; flx, vntl, hyna, km, abcd and cash were fully delisted. Only symbols in `US_EQUITY` in `scripts/fetch_data.py` are eligible, i.e. US-listed stocks (ADRs included) and stock ETFs. Indices, commodities, FX, rates and bond ETFs, crypto indices, pre-IPO names and non-US listings are out.
+- **Rule:** 7d **and** 30d annualized funding ≥ 10%, and average daily notional volume > $2M. Funding windows trail back from the last print, as on the dashboard. Volume is the average of 1d candle volume × (H+L+C)/3 over the last 30 completed UTC days.
+- **Venues:** each DEX listing is screened on its own. Its id is `{dex}-{TICKER}`, and listings outside xyz show their DEX.
+- **Watchlist:** the original 8 xyz coins are always fetched. Those that miss the rule show under "Watchlist".
+- **UI changes:**
+  - Ticker tabs are grouped (screen, then watchlist), each group ordered by 30d funding, and each tab shows 7d and 30d.
+  - The overview has the same groups, sortable window headers (with an open/closed toggle in split view) and an "Avg vol 30d" column.
+- **First run (2026-10-12):**
+  - 34 eligible markets passed the funding rule; 4 also passed on volume: CRCL, MSTR, PURRDAT (Hyperliquid Strategies) and io:NBIS.
+  - Most high-funding names trade well under $2M a day on Hyperliquid, for example BIRD $0.2M, para:TTWO $0.2M and io:GPRO $1.2M.
