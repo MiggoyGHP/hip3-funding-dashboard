@@ -1,8 +1,9 @@
 """Screen Hyperliquid HIP-3 stock perps and snapshot funding history and candles into data/*.json.
 
-Usage:  python scripts/fetch_data.py
-Stdlib only. Re-run any time to refresh the snapshot; it re-screens every live market,
-so names can enter or leave the list. Takes about 10 minutes.
+Usage:  python scripts/fetch_data.py            # re-screen every live market, then fetch
+        python scripts/fetch_data.py --refresh  # re-fetch the markets already listed, no screen
+Stdlib only. A full run re-screens every live market, so names can enter or leave the list,
+and takes about 10 minutes. --refresh keeps the current list (plus WATCHLIST) and takes ~1 minute.
 
 A market is listed when it is a US-listed stock or stock ETF and
   - trailing 7d and 30d annualized funding are both >= MIN_FUNDING, and
@@ -10,6 +11,7 @@ A market is listed when it is a US-listed stock or stock ETF and
 WATCHLIST coins are always listed.
 """
 import json
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -17,7 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 API = "https://api.hyperliquid.xyz/info"
-WATCHLIST = ["xyz:NVDA", "xyz:GOOGL", "xyz:META", "xyz:MU", "xyz:SNDK", "xyz:CRCL", "xyz:INTC", "xyz:HOOD"]
+WATCHLIST = ["xyz:NVDA", "xyz:GOOGL", "xyz:META", "xyz:MU", "xyz:SNDK", "xyz:CRCL", "xyz:INTC", "xyz:HOOD",
+             "io:NBIS"]
 MIN_FUNDING = 10.0          # annualized %, both 7d and 30d
 MIN_VOLUME = 2_000_000      # USD per day, 30-day average
 CANDLE_INTERVALS = ["1d", "4h", "1h"]
@@ -138,20 +141,29 @@ def screen(coins):
             continue
         f = fetch_funding(coin, (now - 30 * DAY) * 1000)
         a7, a30 = annualized(f, 7), annualized(f, 30)
-        ok_funding = a7 is not None and a7 >= MIN_FUNDING and a30 >= MIN_FUNDING
         vol = None
-        if ok_funding or coin in WATCHLIST:
+        if passes(a7, a30, float("inf")) or coin in WATCHLIST:
             vol = avg_volume(fetch_candles(coin, "1d", (today - 31 * DAY) * 1000), today)
-        results[coin] = {"a7": a7, "a30": a30, "vol30": vol,
-                         "pass": ok_funding and vol is not None and vol > MIN_VOLUME}
+        results[coin] = {"a7": a7, "a30": a30, "vol30": vol, "pass": passes(a7, a30, vol)}
         print(f"  {coin:16s} 7d {a7 or 0:7.1f}%  30d {a30 or 0:7.1f}%  "
               f"vol {'' if vol is None else f'${vol / 1e6:.1f}M':>8s}  {'PASS' if results[coin]['pass'] else ''}",
               flush=True)
     return results, unclassified
 
 
+def passes(a7, a30, vol30):
+    return a7 is not None and a7 >= MIN_FUNDING and a30 >= MIN_FUNDING and vol30 is not None and vol30 > MIN_VOLUME
+
+
 def main():
     OUT.mkdir(exist_ok=True)
+    if "--refresh" in sys.argv[1:]:
+        current = [t["coin"] for t in json.loads((OUT / "index.json").read_text())["tickers"]]
+        listed = current + [c for c in WATCHLIST if c not in current]
+        print(f"refreshing {len(listed)} listed markets (no screen)...", flush=True)
+        write_snapshot(listed, passed=None)
+        return
+
     print("discovering live HIP-3 markets...", flush=True)
     coins = live_markets()
     print(f"{len(coins)} live markets; screening...", flush=True)
@@ -169,7 +181,12 @@ def main():
     missing = [c for c in WATCHLIST if c not in coins]
     if missing:
         raise RuntimeError(f"watchlist coins not live: {missing}")
+    write_snapshot(listed, passed)
 
+
+def write_snapshot(listed, passed):
+    """Fetch full history for `listed` and write data/*.json. With passed=None (refresh), a
+    market's group comes from rerunning the screen rules on its stored history."""
     meta = {"snapshot": int(time.time()),
             "rules": {"minFunding": MIN_FUNDING, "minVolume": MIN_VOLUME, "volumeWindow": "30d"},
             "tickers": []}
@@ -188,14 +205,16 @@ def main():
             print(f"    gap {iso(a)} -> {iso(b)} ({(b - a) // 3600}h)")
         (OUT / f"{fid}.json").write_text(json.dumps(
             {"coin": coin, "funding": funding, "candles": candles}, separators=(",", ":")))
+        figs = {"a7": annualized(funding, 7), "a30": annualized(funding, 30),
+                "vol30": avg_volume(candles["1d"], today)}
+        ok = passes(**figs) if passed is None else coin in passed
         meta["tickers"].append({
             "id": fid, "coin": coin, "dex": dex, "ticker": tk,
             "label": tk if dex == "xyz" else f"{tk} · {dex}",
             "kind": US_EQUITY.get(tk, "stock"),
-            "group": "screen" if coin in passed else "watchlist",
+            "group": "screen" if ok else "watchlist",
             # Recomputed from the stored history so they match what the dashboard shows.
-            "screen": {"a7": annualized(funding, 7), "a30": annualized(funding, 30),
-                       "vol30": avg_volume(candles["1d"], today)},
+            "screen": figs,
             "inception": funding[0][0], "last": funding[-1][0], "prints": len(funding),
         })
 

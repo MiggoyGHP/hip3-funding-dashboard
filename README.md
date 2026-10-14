@@ -7,7 +7,7 @@ This dashboard studies funding on Hyperliquid HIP-3 stock perps. It lists two gr
 - **Funding ≥ 10%:** every US-listed stock or stock ETF on any live HIP-3 DEX that passes both rules below. Each run of the fetch script redoes this screen, so names enter and leave over time.
   - Trailing 7d **and** 30d annualized funding are both at least 10%.
   - Average daily notional volume on Hyperliquid over the last 30 completed UTC days (volume × (H+L+C)/3) is above $2M.
-- **Watchlist:** NVDA, GOOGL, META, MU, SNDK, CRCL, INTC and HOOD on `xyz` (trade.xyz). These are always listed; any of them that pass the screen move into the first group.
+- **Watchlist:** NVDA, GOOGL, META, MU, SNDK, CRCL, INTC and HOOD on `xyz` (trade.xyz), plus NBIS on `io`. These are always listed; any of them that pass the screen move into the first group.
 
 When the same ticker trades on several DEXes, each venue is screened separately. A market outside `xyz` is labeled with its DEX, for example `NBIS io`. The screen leaves out indices, commodities, FX, rates and bond ETFs, crypto indices, pre-IPO names and non-US listings.
 
@@ -40,8 +40,16 @@ Features:
 To refresh the data and redo the screen:
 
 ```sh
-python scripts/fetch_data.py   # stdlib only, takes about 10 minutes
+python scripts/fetch_data.py             # stdlib only, takes about 10 minutes
 ```
+
+To refresh only the markets already listed, without re-screening:
+
+```sh
+python scripts/fetch_data.py --refresh   # about 1 minute
+```
+
+`--refresh` keeps every market in `data/index.json` (plus the watchlist) and re-applies the screen rules to the new history, so a name that no longer passes moves to the Watchlist group instead of dropping out.
 
 The script finds every live HIP-3 market and screens the ones whose symbol is in `US_EQUITY`. It prints a ranked table, then fetches full history for the passing markets and the watchlist. Files for markets that drop out are deleted. It also lists live symbols that are in neither `US_EQUITY` nor `NOT_EQUITY`. These are skipped, so classify each one in the script and re-run if it could be a US stock or stock ETF.
 
