@@ -20,7 +20,7 @@ from pathlib import Path
 
 API = "https://api.hyperliquid.xyz/info"
 WATCHLIST = ["xyz:NVDA", "xyz:GOOGL", "xyz:META", "xyz:MU", "xyz:SNDK", "xyz:CRCL", "xyz:INTC", "xyz:HOOD",
-             "io:NBIS"]
+             "xyz:NBIS", "io:NBIS", "io:SNDK"]
 MIN_FUNDING = 10.0          # annualized %, both 7d and 30d
 MIN_VOLUME = 2_000_000      # USD per day, 30-day average
 CANDLE_INTERVALS = ["1d", "4h", "1h"]
@@ -191,6 +191,9 @@ def write_snapshot(listed, passed):
             "rules": {"minFunding": MIN_FUNDING, "minVolume": MIN_VOLUME, "volumeWindow": "30d"},
             "tickers": []}
     today = meta["snapshot"] // DAY * DAY
+    # A ticker listed on several DEXes carries its DEX on every venue, xyz included.
+    tickers = [c.split(":", 1)[1] for c in listed]
+    multi = {tk for tk in tickers if tickers.count(tk) > 1}
     for coin in listed:
         dex, tk = coin.split(":", 1)
         fid = f"{dex}-{tk}"
@@ -210,7 +213,7 @@ def write_snapshot(listed, passed):
         ok = passes(**figs) if passed is None else coin in passed
         meta["tickers"].append({
             "id": fid, "coin": coin, "dex": dex, "ticker": tk,
-            "label": tk if dex == "xyz" else f"{tk} · {dex}",
+            "label": tk if dex == "xyz" and tk not in multi else f"{tk} · {dex}",
             "kind": US_EQUITY.get(tk, "stock"),
             "group": "screen" if ok else "watchlist",
             # Recomputed from the stored history so they match what the dashboard shows.

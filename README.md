@@ -7,9 +7,9 @@ This dashboard studies funding on Hyperliquid HIP-3 stock perps. It lists two gr
 - **Funding ≥ 10%:** every US-listed stock or stock ETF on any live HIP-3 DEX that passes both rules below. Each run of the fetch script redoes this screen, so names enter and leave over time.
   - Trailing 7d **and** 30d annualized funding are both at least 10%.
   - Average daily notional volume on Hyperliquid over the last 30 completed UTC days (volume × (H+L+C)/3) is above $2M.
-- **Watchlist:** NVDA, GOOGL, META, MU, SNDK, CRCL, INTC and HOOD on `xyz` (trade.xyz), plus NBIS on `io`. These are always listed; any of them that pass the screen move into the first group.
+- **Watchlist:** NVDA, GOOGL, META, MU, SNDK, CRCL, INTC, HOOD and NBIS on `xyz` (trade.xyz), plus NBIS and SNDK on `io`. These are always listed; any of them that pass the screen move into the first group.
 
-When the same ticker trades on several DEXes, each venue is screened separately. A market outside `xyz` is labeled with its DEX, for example `NBIS io`. The screen leaves out indices, commodities, FX, rates and bond ETFs, crypto indices, pre-IPO names and non-US listings.
+When the same ticker trades on several DEXes, each venue is screened separately. A market outside `xyz` is labeled with its DEX, for example `SNDK io`. When a ticker is listed on more than one DEX, every venue is labeled, for example `NBIS xyz` and `NBIS io`. The screen leaves out indices, commodities, FX, rates and bond ETFs, crypto indices, pre-IPO names and non-US listings.
 
 Features:
 

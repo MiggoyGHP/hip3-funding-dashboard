@@ -103,10 +103,11 @@ const fmtStab = (v) => (v == null ? "–" : Math.round(v) + "%");
 const fmtVol = (v) => (v == null ? "–" : "$" + (v >= 1e9 ? (v / 1e9).toFixed(1) + "B" : (v / 1e6).toFixed(1) + "M"));
 const label = (id) => info.get(id).label;
 
-// Venue tag after the ticker for markets outside the xyz DEX.
+// Venue tag after the ticker when the label carries one: markets outside the xyz DEX,
+// and every venue of a ticker listed on more than one DEX.
 function nameHtml(id) {
   const t = info.get(id);
-  return t.dex === "xyz" ? t.ticker : `${t.ticker}<span class="venue">${t.dex}</span>`;
+  return t.label === t.ticker ? t.ticker : `${t.ticker}<span class="venue">${t.dex}</span>`;
 }
 
 // Trailing 7d/30d all-hours funding: computed once loaded, from index.json until then.

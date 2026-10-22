@@ -1,5 +1,5 @@
 {
-  "snapshot": 1792650235,
+  "snapshot": 1792651002,
   "rules": {
     "minFunding": 10.0,
     "minVolume": 2000000,
@@ -147,7 +147,7 @@
       "coin": "xyz:SNDK",
       "dex": "xyz",
       "ticker": "SNDK",
-      "label": "SNDK",
+      "label": "SNDK \u00b7 xyz",
       "kind": "stock",
       "group": "watchlist",
       "screen": {
@@ -192,6 +192,40 @@
       "inception": 1764169200,
       "last": 1792648800,
       "prints": 7912
+    },
+    {
+      "id": "xyz-NBIS",
+      "coin": "xyz:NBIS",
+      "dex": "xyz",
+      "ticker": "NBIS",
+      "label": "NBIS \u00b7 xyz",
+      "kind": "stock",
+      "group": "screen",
+      "screen": {
+        "a7": 14.145290300000003,
+        "a30": 10.922444324999999,
+        "vol30": 16214581.577172222
+      },
+      "inception": 1781013600,
+      "last": 1792648800,
+      "prints": 3233
+    },
+    {
+      "id": "io-SNDK",
+      "coin": "io:SNDK",
+      "dex": "io",
+      "ticker": "SNDK",
+      "label": "SNDK \u00b7 io",
+      "kind": "stock",
+      "group": "watchlist",
+      "screen": {
+        "a7": 3.0583876642857146,
+        "a30": 4.675951124999999,
+        "vol30": 31374478.013471555
+      },
+      "inception": 1787151600,
+      "last": 1792648800,
+      "prints": 1528
     }
   ]
 }
