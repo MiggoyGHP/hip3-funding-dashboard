@@ -8,7 +8,8 @@ and takes about 10 minutes. --refresh keeps the current list (plus WATCHLIST) an
 A market is listed when it is a US-listed stock or stock ETF and
   - trailing 7d and 30d annualized funding are both >= MIN_FUNDING, and
   - average daily notional volume over the last 30 completed UTC days is > MIN_VOLUME.
-WATCHLIST coins are always listed.
+WATCHLIST coins are always listed. COMMODITIES are always listed in their own group and
+never screened.
 """
 import json
 import sys
@@ -21,6 +22,8 @@ from pathlib import Path
 API = "https://api.hyperliquid.xyz/info"
 WATCHLIST = ["xyz:NVDA", "xyz:GOOGL", "xyz:META", "xyz:MU", "xyz:SNDK", "xyz:CRCL", "xyz:INTC", "xyz:HOOD",
              "xyz:NBIS", "io:NBIS", "io:SNDK"]
+COMMODITIES = ["xyz:GOLD", "xyz:SILVER", "xyz:CL"]
+DISPLAY = {"xyz:CL": "WTIOIL"}  # dashboard name when it differs from the API symbol
 MIN_FUNDING = 10.0          # annualized %, both 7d and 30d
 MIN_VOLUME = 2_000_000      # USD per day, 30-day average
 CANDLE_INTERVALS = ["1d", "4h", "1h"]
@@ -159,7 +162,7 @@ def main():
     OUT.mkdir(exist_ok=True)
     if "--refresh" in sys.argv[1:]:
         current = [t["coin"] for t in json.loads((OUT / "index.json").read_text())["tickers"]]
-        listed = current + [c for c in WATCHLIST if c not in current]
+        listed = current + [c for c in WATCHLIST + COMMODITIES if c not in current]
         print(f"refreshing {len(listed)} listed markets (no screen)...", flush=True)
         write_snapshot(listed, passed=None)
         return
@@ -177,8 +180,8 @@ def main():
     if unclassified:
         print("\nunclassified (add to US_EQUITY or NOT_EQUITY): " + ", ".join(unclassified))
 
-    listed = passed + [c for c in WATCHLIST if c not in passed]
-    missing = [c for c in WATCHLIST if c not in coins]
+    listed = passed + [c for c in WATCHLIST if c not in passed] + COMMODITIES
+    missing = [c for c in WATCHLIST + COMMODITIES if c not in coins]
     if missing:
         raise RuntimeError(f"watchlist coins not live: {missing}")
     write_snapshot(listed, passed)
@@ -192,11 +195,11 @@ def write_snapshot(listed, passed):
             "tickers": []}
     today = meta["snapshot"] // DAY * DAY
     # A ticker listed on several DEXes carries its DEX on every venue, xyz included.
-    tickers = [c.split(":", 1)[1] for c in listed]
+    tickers = [DISPLAY.get(c, c.split(":", 1)[1]) for c in listed]
     multi = {tk for tk in tickers if tickers.count(tk) > 1}
     for coin in listed:
-        dex, tk = coin.split(":", 1)
-        fid = f"{dex}-{tk}"
+        dex, sym = coin.split(":", 1)
+        fid, tk = f"{dex}-{sym}", DISPLAY.get(coin, sym)
         print(f"\n{coin}: funding...", flush=True)
         funding = fetch_funding(coin)
         candles = {iv: fetch_candles(coin, iv) for iv in CANDLE_INTERVALS}
@@ -210,12 +213,16 @@ def write_snapshot(listed, passed):
             {"coin": coin, "funding": funding, "candles": candles}, separators=(",", ":")))
         figs = {"a7": annualized(funding, 7), "a30": annualized(funding, 30),
                 "vol30": avg_volume(candles["1d"], today)}
-        ok = passes(**figs) if passed is None else coin in passed
+        if coin in COMMODITIES:
+            group = "commodity"
+        else:
+            ok = passes(**figs) if passed is None else coin in passed
+            group = "screen" if ok else "watchlist"
         meta["tickers"].append({
             "id": fid, "coin": coin, "dex": dex, "ticker": tk,
             "label": tk if dex == "xyz" and tk not in multi else f"{tk} · {dex}",
-            "kind": US_EQUITY.get(tk, "stock"),
-            "group": "screen" if ok else "watchlist",
+            "kind": "commodity" if coin in COMMODITIES else US_EQUITY.get(sym, "stock"),
+            "group": group,
             # Recomputed from the stored history so they match what the dashboard shows.
             "screen": figs,
             "inception": funding[0][0], "last": funding[-1][0], "prints": len(funding),

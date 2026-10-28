@@ -40,11 +40,11 @@ const state = {
 if (state.gapA === state.gapB) { state.gapA = "open"; state.gapB = "closed"; }
 
 let meta = null;
-let order = []; // ids: screen group by 30d funding, then the watchlist
+let order = []; // ids: screen group by 30d funding, then the watchlist, then commodities
 const info = new Map(); // id -> index.json entry
 const markets = new Map(); // id -> derived data
-const GROUPS = { screen: "Funding ≥ 10%", watchlist: "Watchlist" };
-const NAV_GROUPS = { screen: "≥ 10%", watchlist: "Watchlist" }; // short enough for the vertical tab-strip label
+const GROUPS = { screen: "Funding ≥ 10%", watchlist: "Watchlist", commodity: "Commodities" };
+const NAV_GROUPS = { screen: "≥ 10%", watchlist: "Watchlist", commodity: "Commodities" }; // short enough for the vertical tab-strip label
 const chart = new FundingChart($("#chart"), $("#readout"));
 
 // ---------- data ----------
@@ -206,6 +206,7 @@ function renderOverview() {
   const dividers = {
     screen: `${GROUPS.screen}: 7d and 30d funding ≥ ${r.minFunding}%, 30d average volume over ${fmtVol(r.minVolume)}`,
     watchlist: "Watchlist: tracked, not passing the screen",
+    commodity: "Commodities: tracked, not screened",
   };
   const rows = Object.keys(GROUPS).flatMap((g) => {
     const ids = sortedGroup(g);

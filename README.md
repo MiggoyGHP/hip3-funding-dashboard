@@ -2,12 +2,13 @@
 
 Live: https://miggoyghp.github.io/hip3-funding-dashboard/
 
-This dashboard studies funding on Hyperliquid HIP-3 stock perps. It lists two groups:
+This dashboard studies funding on Hyperliquid HIP-3 stock perps, plus three commodity perps for comparison. It lists three groups:
 
 - **Funding ≥ 10%:** every US-listed stock or stock ETF on any live HIP-3 DEX that passes both rules below. Each run of the fetch script redoes this screen, so names enter and leave over time.
   - Trailing 7d **and** 30d annualized funding are both at least 10%.
   - Average daily notional volume on Hyperliquid over the last 30 completed UTC days (volume × (H+L+C)/3) is above $2M.
 - **Watchlist:** NVDA, GOOGL, META, MU, SNDK, CRCL, INTC, HOOD and NBIS on `xyz` (trade.xyz), plus NBIS and SNDK on `io`. These are always listed; any of them that pass the screen move into the first group.
+- **Commodities:** GOLD, SILVER and WTIOIL on `xyz`. These are always listed and never screened. WTIOIL is the API symbol `xyz:CL`. GOLD and SILVER are priced off XAU/USD and XAG/USD spot. WTIOIL follows a WTI futures contract and rolls into the next contract over business days 5–10 of each month, 20% per day ([trade.xyz docs](https://docs.trade.xyz/xyz-perps-specification/commodities)).
 
 When the same ticker trades on several DEXes, each venue is screened separately. A market outside `xyz` is labeled with its DEX, for example `SNDK io`. When a ticker is listed on more than one DEX, every venue is labeled, for example `NBIS xyz` and `NBIS io`. The screen leaves out indices, commodities, FX, rates and bond ETFs, crypto indices, pre-IPO names and non-US listings.
 
